@@ -1,0 +1,175 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Users {
+  id                 Int              @id @default(autoincrement())
+  name               String
+  profile_url        String?
+  profile_name       String?
+  profile_url_expiry DateTime?
+  email              String           @unique
+  password           String
+  created_at         DateTime         @default(now())
+  updated_at         DateTime         @updatedAt
+  deleted_at         DateTime?
+  roles              UserHasRole[]
+  projects           Projects[]
+  projectMembers     ProjectMembers[]
+  created_tasks      Tasks[]          @relation("CreatedTasks")
+  assigned_tasks     Tasks[]          @relation("AssignedTasks")
+  comments           Comments[]
+  attachments        Attachments[]
+}
+
+model Roles {
+  id          Int                 @id @default(autoincrement())
+  name        String              @unique
+  created_at  DateTime            @default(now())
+  updated_at  DateTime            @updatedAt
+  deleted_at  DateTime?
+  users       UserHasRole[]
+  permissions RoleHasPermission[]
+}
+
+model UserHasRole {
+  user        Users    @relation(fields: [user_id], references: [id])
+  user_id     Int
+  role        Roles    @relation(fields: [role_id], references: [id])
+  role_id     Int
+  assigned_at DateTime @default(now())
+  assigned_by String
+
+  @@id([user_id, role_id])
+}
+
+model Permissions {
+  id         Int                 @id @default(autoincrement())
+  name       String              @unique
+  created_at DateTime            @default(now())
+  updated_at DateTime            @updatedAt
+  deleted_at DateTime?
+  roles      RoleHasPermission[]
+}
+
+model RoleHasPermission {
+  role          Roles       @relation(fields: [role_id], references: [id])
+  role_id       Int
+  permission    Permissions @relation(fields: [permission_id], references: [id])
+  permission_id Int
+
+  @@id([role_id, permission_id])
+}
+
+model Projects {
+  id             Int                  @id @default(autoincrement())
+  name           String               @unique
+  description    String
+  created_at     DateTime             @default(now())
+  updated_at     DateTime             @updatedAt
+  deleted_at     DateTime?
+  owner          Users                @relation(fields: [owner_id], references: [id])
+  owner_id       Int
+  projectMembers ProjectMembers[]
+  workflows      ProjectHasWorkflow[]
+  tasks          Tasks[]
+}
+
+model ProjectMembers {
+  project    Projects  @relation(fields: [project_id], references: [id])
+  project_id Int
+  user       Users     @relation(fields: [user_id], references: [id])
+  user_id    Int
+  user_role  USER_ROLE
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+
+  @@id([project_id, user_id])
+}
+
+enum USER_ROLE {
+  OWNER
+  MANAGER
+  DEVELOPER
+  TESTER
+  OBSERVER
+}
+
+model Workflows {
+  id         Int                  @id @default(autoincrement())
+  name       String               @unique
+  created_at DateTime             @default(now())
+  updated_at DateTime             @updatedAt
+  deleted_at DateTime?
+  projects   ProjectHasWorkflow[]
+  tasks      Tasks[]
+}
+
+model ProjectHasWorkflow {
+  project     Projects  @relation(fields: [project_id], references: [id])
+  project_id  Int
+  workflow    Workflows @relation(fields: [workflow_id], references: [id])
+  workflow_id Int
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  deleted_at  DateTime?
+
+  @@id([project_id, workflow_id])
+}
+
+model Tasks {
+  id          Int        @id @default(autoincrement())
+  title       String
+  description String
+  workflow    Workflows  @relation(fields: [status], references: [id])
+  status      Int
+  created_at  DateTime   @default(now())
+  updated_at  DateTime   @updatedAt
+  deleted_at  DateTime?
+  creator     Users      @relation("CreatedTasks", fields: [created_by], references: [id])
+  created_by  Int
+  assignee    Users?     @relation("AssignedTasks", fields: [assignee_id], references: [id])
+  assignee_id Int?
+  project     Projects   @relation(fields: [project_id], references: [id])
+  project_id  Int
+  comments    Comments[]
+}
+
+model Comments {
+  id                Int           @id @default(autoincrement())
+  content           String
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
+  deleted_at        DateTime?
+  task              Tasks         @relation(fields: [task_id], references: [id])
+  task_id           Int
+  commented_by_user Users         @relation(fields: [commented_by], references: [id])
+  commented_by      Int
+  attachments       Attachments[]
+}
+
+model Attachments {
+  id          Int       @id @default(autoincrement())
+  url         String
+  image_name  String
+  url_expiry  DateTime
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  deleted_at  DateTime?
+  comment     Comments  @relation(fields: [comment_id], references: [id])
+  comment_id  Int
+  user        Users     @relation(fields: [uploaded_by], references: [id])
+  uploaded_by Int
+}
